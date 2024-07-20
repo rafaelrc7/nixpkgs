@@ -1,8 +1,11 @@
 { stdenv
 , lib
+, system
 , fetchFromGitHub
+, graalvm-ce
 , gradle
 , jdk17
+, nativeBuild ? true
 }:
 stdenv.mkDerivation rec {
   pname = "pkl";
@@ -27,7 +30,16 @@ stdenv.mkDerivation rec {
     '';
   };
 
-  nativeBuildInputs = [ gradle ];
+  patches = [ ./use_nix_graalvm_instead_of_download.patch ];
+
+  postPatch = ''
+    export graalvmDir="${graalvm-ce}"
+    substituteAllInPlace ./buildSrc/src/main/kotlin/BuildInfo.kt
+  '';
+
+  nativeBuildInputs = [
+    gradle
+  ] ++ (if nativeBuild then [ graalvm-ce ] else [ ]);
 
   mitmCache = gradle.fetchDeps {
     inherit pname;
@@ -36,7 +48,14 @@ stdenv.mkDerivation rec {
 
   __darwinAllowLocalNetworking = true;
 
+  gradleBuildTask = if nativeBuild then
+                      "assembleNative"
+                    else
+                      "assemble";
+
   gradleFlags = [
+    "--stacktrace"
+    "--info"
     "-x" "spotlessCheck"
     "-DreleaseBuild=true"
     "-Dorg.gradle.java.home=${jdk17}"
@@ -44,25 +63,50 @@ stdenv.mkDerivation rec {
 
   JAVA_TOOL_OPTIONS = "-Dfile.encoding=utf-8";
 
-  installPhase = ''
-    runHook preInstall
+  installPhase = if nativeBuild then
+      let executableName = {
+        "aarch64-darwin" = "pkl-macos-aarch64";
+        "x86_64-darwin" = "pkl-macos-amd64";
+        "aarch64-linux" = "pkl-linux-aarch64";
+        "x86_64-linux" = "pkl-linux-amd64";
+      }."${system}";
+      in
+      ''
+        runHook preInstall
 
-    mkdir -p "$out/bin"
-    head -n2 ./pkl-cli/build/executable/jpkl | sed 's%java%${jdk17}/bin/java%' > "$out/bin/pkl"
-    tail -n+3 ./pkl-cli/build/executable/jpkl >> "$out/bin/pkl"
-    chmod 755 "$out/bin/pkl"
+        mkdir -p "$out/bin"
+        install -Dm755 "./pkl-cli/build/executable/${executableName}" "$out/bin/pkl"
 
-    runHook postInstall
-  '';
+        runHook postInstall
+      ''
+    else
+      ''
+        runHook preInstall
 
-  meta = with lib; {
+        mkdir -p "$out/bin"
+        head -n2 ./pkl-cli/build/executable/jpkl | sed 's%java%${jdk17}/bin/java%' > "$out/bin/jpkl"
+        tail -n+3 ./pkl-cli/build/executable/jpkl >> "$out/bin/jpkl"
+        chmod 755 "$out/bin/jpkl"
+
+        runHook postInstall
+      '';
+
+  meta = {
     description = "A configuration as code language with rich validation and tooling.";
-    homepage = "https://pkl-lang.org/main/current/index.html";
-    licence = licenses.asl20;
-    platforms = platforms.all;
-    maintainers = with maintainers; [ rafaelrc ];
-    mainProgram = "pkl";
-    sourceProvenance = with sourceTypes; [
+    homepage = "https://pkl-lang.org/";
+    licence = lib.licenses.asl20;
+    platforms = if nativeBuild then
+                  [
+                    "aarch64-darwin"
+                    "x86_64-darwin"
+                    "aarch64-linux"
+                    "x86_64-linux"
+                  ]
+                else
+                  lib.platforms.all;
+    maintainers = with lib.maintainers; [ rafaelrc ];
+    mainProgram = if nativeBuild then "pkl" else "jpkl";
+    sourceProvenance = with lib.sourceTypes; [
       fromSource
       binaryBytecode # mitm cache
     ];

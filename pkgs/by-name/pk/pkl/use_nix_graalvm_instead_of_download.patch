@@ -1,0 +1,79 @@
+diff --git a/buildSrc/src/main/kotlin/BuildInfo.kt b/buildSrc/src/main/kotlin/BuildInfo.kt
+index 0264375..3cc9063 100644
+--- a/buildSrc/src/main/kotlin/BuildInfo.kt
++++ b/buildSrc/src/main/kotlin/BuildInfo.kt
+@@ -42,11 +42,11 @@ open class BuildInfo(project: Project) {
+     }
+
+     val installDir: File by lazy {
+-      File(homeDir, baseName)
++      File("@graalvmDir@")
+     }
+
+     val baseDir: String by lazy {
+-      if (os.isMacOsX) "$installDir/Contents/Home" else installDir.toString()
++      "@graalvmDir@"
+     }
+   }
+
+diff --git a/pkl-cli/pkl-cli.gradle.kts b/pkl-cli/pkl-cli.gradle.kts
+index f689d73..1f889dc 100644
+--- a/pkl-cli/pkl-cli.gradle.kts
++++ b/pkl-cli/pkl-cli.gradle.kts
+@@ -182,7 +182,7 @@ fun Exec.configureExecutable(
+       add("-H:IncludeResources=org/jline/utils/.*")
+       add("-H:IncludeResourceBundles=org.pkl.core.errorMessages")
+       add("-H:IncludeResources=org/pkl/commons/cli/PklCARoots.pem")
+-      add("--macro:truffle")
++      add("--macro:truffle-svm")
+       add("-H:Class=org.pkl.cli.Main")
+       add("-H:Name=${outputFile.get().asFile.name}")
+       // the actual limit (currently) used by native-image is this number + 1400 (idea is to compensate for Truffle's own nodes)
+@@ -215,7 +215,6 @@ fun Exec.configureExecutable(
+  * Builds the pkl CLI for macOS/amd64.
+  */
+ val macExecutableAmd64: TaskProvider<Exec> by tasks.registering(Exec::class) {
+-  dependsOn(":installGraalVmAmd64")
+   configureExecutable(
+     buildInfo.graalVmAmd64,
+     layout.buildDirectory.file("executable/pkl-macos-amd64")
+@@ -226,7 +225,6 @@ val macExecutableAmd64: TaskProvider<Exec> by tasks.registering(Exec::class) {
+  * Builds the pkl CLI for macOS/aarch64.
+  */
+ val macExecutableAarch64: TaskProvider<Exec> by tasks.registering(Exec::class) {
+-  dependsOn(":installGraalVmAarch64")
+   configureExecutable(
+     buildInfo.graalVmAarch64,
+     layout.buildDirectory.file("executable/pkl-macos-aarch64"),
+@@ -240,7 +238,6 @@ val macExecutableAarch64: TaskProvider<Exec> by tasks.registering(Exec::class) {
+  * Builds the pkl CLI for linux/amd64.
+  */
+ val linuxExecutableAmd64: TaskProvider<Exec> by tasks.registering(Exec::class) {
+-  dependsOn(":installGraalVmAmd64")
+   configureExecutable(
+     buildInfo.graalVmAmd64,
+     layout.buildDirectory.file("executable/pkl-linux-amd64")
+@@ -254,7 +251,6 @@ val linuxExecutableAmd64: TaskProvider<Exec> by tasks.registering(Exec::class) {
+  * ARM instances.
+  */
+ val linuxExecutableAarch64: TaskProvider<Exec> by tasks.registering(Exec::class) {
+-  dependsOn(":installGraalVmAarch64")
+   configureExecutable(
+     buildInfo.graalVmAarch64,
+     layout.buildDirectory.file("executable/pkl-linux-aarch64")
+@@ -268,7 +264,6 @@ val linuxExecutableAarch64: TaskProvider<Exec> by tasks.registering(Exec::class)
+  * Details: https://www.graalvm.org/22.0/reference-manual/native-image/ARM64/
+  */
+ val alpineExecutableAmd64: TaskProvider<Exec> by tasks.registering(Exec::class) {
+-  dependsOn(":installGraalVmAmd64")
+   configureExecutable(
+     buildInfo.graalVmAmd64,
+     layout.buildDirectory.file("executable/pkl-alpine-linux-amd64"),
+@@ -277,7 +272,6 @@ val alpineExecutableAmd64: TaskProvider<Exec> by tasks.registering(Exec::class)
+ }
+
+ val windowsExecutableAmd64: TaskProvider<Exec> by tasks.registering(Exec::class) {
+-  dependsOn(":installGraalVmAmd64")
+   configureExecutable(
+     buildInfo.graalVmAmd64,
+     layout.buildDirectory.file("executable/pkl-windows-amd64"),
